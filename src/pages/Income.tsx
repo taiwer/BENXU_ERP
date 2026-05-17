@@ -14,7 +14,8 @@ import {
   Download,
   Calendar,
   User as UserIcon,
-  CreditCard
+  CreditCard,
+  FolderKanban
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -32,6 +33,7 @@ export default function Income() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [allCustomers, setAllCustomers] = useState<string[]>([]);
+  const [allProjects, setAllProjects] = useState<string[]>([]);
   
   // Advanced Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -39,6 +41,7 @@ export default function Income() {
   const [filterEndDate, setFilterEndDate] = useState('');
   const [filterPaymentMode, setFilterPaymentMode] = useState<string>('all');
   const [filterOperator, setFilterOperator] = useState<string>('');
+  const [filterProject, setFilterProject] = useState<string>('');
 
   const filteredRecords = records.filter(r => {
     const matchesSearch = 
@@ -47,14 +50,16 @@ export default function Income() {
       r.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.source?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.operator_name?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStartDate = !filterStartDate || r.date >= filterStartDate;
     const matchesEndDate = !filterEndDate || r.date <= filterEndDate;
     const matchesPaymentMode = filterPaymentMode === 'all' || r.payment_mode === filterPaymentMode;
     const matchesOperator = !filterOperator || r.operator_name?.toLowerCase().includes(filterOperator.toLowerCase());
+    const matchesProject = !filterProject || r.project_name?.toLowerCase().includes(filterProject.toLowerCase());
 
-    return matchesSearch && matchesStartDate && matchesEndDate && matchesPaymentMode && matchesOperator;
+    return matchesSearch && matchesStartDate && matchesEndDate && matchesPaymentMode && matchesOperator && matchesProject;
   });
   
   const [parsing, setParsing] = useState(false);
@@ -64,12 +69,18 @@ export default function Income() {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('实验收入');
   const [customer, setCustomer] = useState('');
+  const [projectName, setProjectName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [invoiceNo, setInvoiceNo] = useState('');
   const [description, setDescription] = useState('');
   const [source, setSource] = useState(sourcesData.income[0]);
   const [customSource, setCustomSource] = useState('');
   const [paymentMode, setPaymentMode] = useState<'对公' | '对私'>('对私');
+
+  // Reason Modal State
+  const [showReasonModal, setShowReasonModal] = useState<'update' | 'delete' | null>(null);
+  const [opReason, setOpReason] = useState('');
+  const [pendingActionData, setPendingActionData] = useState<any>(null);
 
   const fetchRecords = async () => {
     try {
@@ -95,15 +106,34 @@ export default function Income() {
     }
   };
 
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch('/api/projects');
+      if (res.ok) {
+        const data = await res.json();
+        setAllProjects(data);
+      }
+    } catch (err) {
+      console.error('Fetch projects failed');
+    }
+  };
+
   useEffect(() => {
     fetchRecords();
     fetchCustomers();
+    fetchProjects();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || isNaN(parseFloat(amount))) {
       setError('请输入有效金额');
+      return;
+    }
+
+    if (editingId && !opReason) {
+      setPendingActionData({ type: 'update' });
+      setShowReasonModal('update');
       return;
     }
 
@@ -128,8 +158,10 @@ export default function Income() {
           category,
           source: finalSource,
           payment_mode: paymentMode,
+          project_name: projectName,
           description,
-          attachment_url: JSON.stringify(attachmentUrls)
+          attachment_url: JSON.stringify(attachmentUrls),
+          operation_reason: opReason
         })
       });
 
@@ -138,6 +170,7 @@ export default function Income() {
         resetForm();
         fetchRecords();
         fetchCustomers();
+        fetchProjects();
       } else {
         const data = await res.json();
         setError(data.error || '保存失败');
@@ -147,6 +180,8 @@ export default function Income() {
       setError('网络异常，请重试');
     } finally {
       setLoading(false);
+      setOpReason('');
+      setShowReasonModal(null);
     }
   };
 
@@ -154,6 +189,7 @@ export default function Income() {
     setAmount('');
     setCategory('实验收入');
     setCustomer('');
+    setProjectName('');
     setDate(new Date().toISOString().split('T')[0]);
     setInvoiceNo('');
     setDescription('');
@@ -163,6 +199,7 @@ export default function Income() {
     setAttachmentUrls([]);
     setError(null);
     setEditingId(null);
+    setOpReason('');
   };
 
   const handleEdit = (record: Transaction) => {
@@ -170,6 +207,7 @@ export default function Income() {
     setAmount(record.amount.toString());
     setCategory(record.category);
     setCustomer(record.customer || '');
+    setProjectName(record.project_name || '');
     setDate(record.date);
     setInvoiceNo(record.invoice_no || '');
     setDescription(record.description || '');
@@ -217,10 +255,11 @@ export default function Income() {
   };
 
   const handleExport = () => {
-    const headers = ['日期', '客户', '发票号', '类别', '渠道', '款项类型', '金额', '备注', '经办人'];
+    const headers = ['日期', '客户', '项目', '发票号', '类别', '渠道', '款项类型', '金额', '备注', '经办人'];
     const rows = filteredRecords.map(r => [
       r.date,
       r.customer,
+      r.project_name || '',
       r.invoice_no,
       r.category,
       r.source,
@@ -246,22 +285,34 @@ export default function Income() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这笔记录吗？')) return;
+    if (!opReason) {
+      setPendingActionData({ type: 'delete', id });
+      setShowReasonModal('delete');
+      return;
+    }
     
     try {
       const res = await fetch(`/api/transactions/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_deleted: 1 })
+        body: JSON.stringify({ 
+          is_deleted: 1,
+          operation_reason: opReason
+        })
       });
       
       if (res.ok) {
         fetchRecords();
+        fetchProjects();
       } else {
         alert('删除失败');
       }
     } catch (err) {
       console.error('Delete failed:', err);
+    } finally {
+      setOpReason('');
+      setShowReasonModal(null);
+      setPendingActionData(null);
     }
   };
 
@@ -288,7 +339,7 @@ export default function Income() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input 
               type="text" 
-              placeholder="搜索客户、发票号、备注、来源、经办人..." 
+              placeholder="搜索客户、项目、发票号、备注、来源、经办人..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
@@ -359,6 +410,19 @@ export default function Income() {
                 <option value="对私">对私</option>
               </select>
             </div>
+              <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-1">
+                <FolderKanban className="h-3 w-3" />
+                关联项目
+              </label>
+              <input 
+                type="text" 
+                placeholder="搜索项目..."
+                value={filterProject}
+                onChange={e => setFilterProject(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-1">
                 <UserIcon className="h-3 w-3" />
@@ -412,7 +476,17 @@ export default function Income() {
                          </div>
                        )}
                     </div>
-                    {record.invoice_no && <div className="text-[10px] text-gray-400">票号: {record.invoice_no}</div>}
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {record.project_name && (
+                        <button 
+                          onClick={() => navigate(`/projects/${encodeURIComponent(record.project_name!)}`)}
+                          className="text-[10px] text-indigo-500 hover:underline font-medium"
+                        >
+                          #{record.project_name}
+                        </button>
+                      )}
+                      {record.invoice_no && <div className="text-[10px] text-gray-400">票号: {record.invoice_no}</div>}
+                    </div>
                   </td>
                   <td className="px-6 py-4 mt-1">
                     <div className="flex flex-wrap gap-1">
@@ -629,6 +703,21 @@ export default function Income() {
                 </div>
 
                 <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">项目名称 <span className="text-gray-400">(可选)</span></label>
+                  <input 
+                    list="project-suggestions"
+                    type="text" 
+                    placeholder="关联到具体项目..."
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <datalist id="project-suggestions">
+                    {allProjects.map(p => <option key={p} value={p} />)}
+                  </datalist>
+                </div>
+
+                <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 text-gray-400">备注 (可选)</label>
                   <textarea 
                     rows={2}
@@ -665,6 +754,71 @@ export default function Income() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Reason Modal */}
+      <AnimatePresence>
+        {showReasonModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setShowReasonModal(null); setOpReason(''); }}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl"
+            >
+              <h3 className="mb-2 text-lg font-bold text-gray-900">
+                {showReasonModal === 'delete' ? '确认删除' : '确认修改'}
+              </h3>
+              <p className="mb-6 text-sm text-gray-500 leading-relaxed">
+                为了保证账目审计合规，所有的{showReasonModal === 'delete' ? '删除' : '修改'}操作都必须填写明确的原因。
+              </p>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">
+                    操作原因 <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea 
+                    required
+                    autoFocus
+                    rows={3}
+                    placeholder="请简要说明原因，例如：录入错误、金额变动、退款等..."
+                    value={opReason}
+                    onChange={(e) => setOpReason(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => { setShowReasonModal(null); setOpReason(''); }}
+                    className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                  >
+                    取消
+                  </button>
+                  <button 
+                    disabled={!opReason.trim()}
+                    onClick={() => {
+                      if (showReasonModal === 'delete') {
+                        handleDelete(pendingActionData.id);
+                      } else {
+                        handleSubmit({ preventDefault: () => {} } as any);
+                      }
+                    }}
+                    className="flex-1 rounded-xl bg-slate-900 py-3 text-sm font-semibold text-white transition-all hover:bg-slate-800 disabled:opacity-30 active:scale-95"
+                  >
+                    确认提交
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

@@ -12,12 +12,15 @@ import {
   Database
 } from 'lucide-react';
 import { formatDate } from '../lib/utils';
-import { OperationLog } from '../types';
+import { OperationLog, User } from '../types';
+import { AlertTriangle } from 'lucide-react';
 
-export default function Logs() {
+export default function Logs({ user }: { user: User }) {
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const isAdmin = user.role === 'admin';
 
   const fetchLogs = async () => {
     try {
@@ -34,8 +37,22 @@ export default function Logs() {
   };
 
   useEffect(() => {
-    fetchLogs();
-  }, []);
+    if (isAdmin) {
+      fetchLogs();
+    }
+  }, [isAdmin]);
+
+  if (!isAdmin) {
+    return (
+      <div className="flex h-[60vh] flex-col items-center justify-center text-center">
+        <div className="mb-4 rounded-full bg-rose-50 p-4 text-rose-600">
+          <AlertTriangle className="h-10 w-10" />
+        </div>
+        <h2 className="text-xl font-bold">权限不足</h2>
+        <p className="text-gray-500">仅管理员可以访问操作日志</p>
+      </div>
+    );
+  }
 
   const filteredLogs = logs.filter(l => 
     l.user_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -138,10 +155,19 @@ export default function Logs() {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="max-w-md">
+                    <div className="max-w-md space-y-2">
                        <pre className="text-[10px] text-gray-500 overflow-hidden text-ellipsis bg-gray-50 p-2 rounded-lg max-h-24 overflow-y-auto whitespace-pre-wrap font-mono">
                          {JSON.stringify(JSON.parse(log.details), null, 2)}
                        </pre>
+                       {log.reason && (
+                         <div className="flex gap-1.5 p-2 bg-blue-50/50 rounded-lg border border-blue-100/50">
+                           <AlertTriangle className="h-3 w-3 text-blue-500 shrink-0 mt-0.5" />
+                           <div className="text-[10px] italic text-blue-700 leading-relaxed">
+                             <span className="font-bold non-italic mr-1 text-[8px] uppercase tracking-wider text-blue-400">操作原因:</span>
+                             {log.reason}
+                           </div>
+                         </div>
+                       )}
                     </div>
                   </td>
                 </tr>

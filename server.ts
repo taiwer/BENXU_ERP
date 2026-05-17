@@ -69,6 +69,7 @@ db.exec(`
     description TEXT,
     source TEXT,
     payment_mode TEXT, -- '对公', '对私'
+    project_name TEXT,
     attachment_url TEXT, -- Store as JSON array string
     operator_id INTEGER,
     operator_name TEXT,
@@ -86,6 +87,7 @@ db.exec(`
     module TEXT, -- 'INCOME', 'EXPENSE', 'TRANSACTION'
     target_id INTEGER,
     details TEXT, -- JSON string of changes
+    reason TEXT, -- Mandatory reason for edit/delete
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES users(id)
   );
@@ -98,14 +100,16 @@ db.exec(`
 // Safe migrations
 try { db.prepare("ALTER TABLE transactions ADD COLUMN source TEXT").run(); } catch (e) {}
 try { db.prepare("ALTER TABLE transactions ADD COLUMN payment_mode TEXT").run(); } catch (e) {}
+try { db.prepare("ALTER TABLE transactions ADD COLUMN project_name TEXT").run(); } catch (e) {}
 try { db.prepare("ALTER TABLE transactions ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP").run(); } catch (e) {}
+try { db.prepare("ALTER TABLE operation_logs ADD COLUMN reason TEXT").run(); } catch (e) {}
 
-const recordLog = (userId: number, userName: string, action: string, module: string, targetId: number | null, details: any) => {
+const recordLog = (userId: number, userName: string, action: string, module: string, targetId: number | null, details: any, reason?: string) => {
   try {
     db.prepare(`
-      INSERT INTO operation_logs (user_id, user_name, action, module, target_id, details)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(userId, userName, action, module, targetId, JSON.stringify(details));
+      INSERT INTO operation_logs (user_id, user_name, action, module, target_id, details, reason)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(userId, userName, action, module, targetId, JSON.stringify(details), reason || null);
   } catch (err) {
     console.error('Failed to record log:', err);
   }
@@ -231,17 +235,22 @@ app.get("/api/transactions", authenticateToken, (req, res) => {
   res.json(transactions);
 });
 
+app.get("/api/projects", authenticateToken, (req, res) => {
+  const projects = db.prepare("SELECT DISTINCT project_name FROM transactions WHERE project_name IS NOT NULL AND project_name != '' AND is_deleted = 0").all();
+  res.json(projects.map((p: any) => p.project_name));
+});
+
 app.get("/api/transactions/customers", authenticateToken, (req, res) => {
   const customers = db.prepare("SELECT DISTINCT customer FROM transactions WHERE customer IS NOT NULL AND customer != '' AND is_deleted = 0").all();
   res.json(customers.map((c: any) => c.customer));
 });
 
 app.post("/api/transactions", authenticateToken, (req: any, res) => {
-  const { type, amount, date, customer, invoice_no, category, description, source, payment_mode, attachment_url } = req.body;
+  const { type, amount, date, customer, invoice_no, category, description, source, payment_mode, project_name, attachment_url } = req.body;
   
   const result = db.prepare(`
-    INSERT INTO transactions (type, amount, date, customer, invoice_no, category, description, source, payment_mode, attachment_url, operator_id, operator_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO transactions (type, amount, date, customer, invoice_no, category, description, source, payment_mode, project_name, attachment_url, operator_id, operator_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     type, 
     amount, 
@@ -252,6 +261,7 @@ app.post("/api/transactions", authenticateToken, (req: any, res) => {
     description, 
     source || null, 
     payment_mode || '对私',
+    project_name || null,
     attachment_url, 
     req.user.id, 
     req.user.name
@@ -271,14 +281,16 @@ app.post("/api/transactions", authenticateToken, (req: any, res) => {
 
 app.put("/api/transactions/:id", authenticateToken, (req: any, res) => {
   const { id } = req.params;
-  const { amount, date, customer, invoice_no, category, description, source, payment_mode, attachment_url } = req.body;
+  const { amount, date, customer, invoice_no, category, description, source, payment_mode, project_name, attachment_url, operation_reason } = req.body;
+
+  if (!operation_reason) return res.status(400).json({ error: "Operation reason is required" });
 
   const oldRecord = db.prepare("SELECT * FROM transactions WHERE id = ? AND is_deleted = 0").get(id) as any;
   if (!oldRecord) return res.status(404).json({ error: "Record not found" });
 
   db.prepare(`
     UPDATE transactions 
-    SET amount = ?, date = ?, customer = ?, invoice_no = ?, category = ?, description = ?, source = ?, payment_mode = ?, attachment_url = ?, updated_at = CURRENT_TIMESTAMP
+    SET amount = ?, date = ?, customer = ?, invoice_no = ?, category = ?, description = ?, source = ?, payment_mode = ?, project_name = ?, attachment_url = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `).run(
     amount, 
@@ -289,12 +301,16 @@ app.put("/api/transactions/:id", authenticateToken, (req: any, res) => {
     description, 
     source || null, 
     payment_mode || '对私',
+    project_name || null,
     attachment_url, 
     id
   );
 
   // Record Log
-  recordLog(req.user.id, req.user.name, 'UPDATE', oldRecord.type === 'income' ? 'INCOME' : 'EXPENSE', parseInt(id), { old: oldRecord, new: req.body });
+  recordLog(req.user.id, req.user.name, 'UPDATE', oldRecord.type === 'income' ? 'INCOME' : 'EXPENSE', parseInt(id), { 
+    old: oldRecord, 
+    new: req.body
+  }, operation_reason);
 
   // Adjust account balance
   let diff = 0;
@@ -310,9 +326,11 @@ app.put("/api/transactions/:id", authenticateToken, (req: any, res) => {
 
 app.patch("/api/transactions/:id", authenticateToken, (req: any, res) => {
   const { id } = req.params;
-  const { is_deleted } = req.body;
+  const { is_deleted, operation_reason } = req.body;
 
   if (is_deleted === 1) {
+    if (!operation_reason) return res.status(400).json({ error: "Operation reason is required" });
+
     const transaction = db.prepare("SELECT * FROM transactions WHERE id = ?").get(id) as any;
     if (transaction && transaction.is_deleted === 0) {
       const balanceChange = transaction.type === 'income' ? -transaction.amount : transaction.amount;
@@ -320,7 +338,7 @@ app.patch("/api/transactions/:id", authenticateToken, (req: any, res) => {
       db.prepare("UPDATE transactions SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
       
       // Record Log
-      recordLog(req.user.id, req.user.name, 'DELETE', transaction.type === 'income' ? 'INCOME' : 'EXPENSE', parseInt(id), transaction);
+      recordLog(req.user.id, req.user.name, 'DELETE', transaction.type === 'income' ? 'INCOME' : 'EXPENSE', parseInt(id), transaction, operation_reason);
     }
   }
   res.json({ success: true });
@@ -341,8 +359,28 @@ app.get("/api/accounts", authenticateToken, (req, res) => {
 app.patch("/api/accounts/:id", authenticateToken, (req: any, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: "Unauthorized" });
   const { id } = req.params;
-  const { name } = req.body;
-  db.prepare("UPDATE accounts SET name = ? WHERE id = ?").run(name, id);
+  const { name, initial_balance, operation_reason } = req.body;
+  
+  if (!operation_reason) return res.status(400).json({ error: "Operation reason is required" });
+
+  const oldAccount = db.prepare("SELECT * FROM accounts WHERE id = ?").get(id) as any;
+  if (!oldAccount) return res.status(404).json({ error: "Account not found" });
+
+  if (name !== undefined && name !== oldAccount.name) {
+    db.prepare("UPDATE accounts SET name = ? WHERE id = ?").run(name, id);
+    recordLog(req.user.id, req.user.name, 'UPDATE', 'ACCOUNT', null, { name: { old: oldAccount.name, new: name } }, operation_reason);
+  }
+  
+  if (initial_balance !== undefined) {
+    const val = Number(initial_balance);
+    if (!isNaN(val) && val !== oldAccount.initial_balance) {
+      const initialDiff = val - oldAccount.initial_balance;
+      const newCurrentBalance = oldAccount.current_balance + initialDiff;
+      db.prepare("UPDATE accounts SET initial_balance = ?, current_balance = ? WHERE id = ?").run(val, newCurrentBalance, id);
+      recordLog(req.user.id, req.user.name, 'UPDATE', 'ACCOUNT', null, { initial_balance: { old: oldAccount.initial_balance, new: val } }, operation_reason);
+    }
+  }
+  
   res.json({ success: true });
 });
 

@@ -7,6 +7,8 @@ import Expense from './pages/Expense';
 import Invoices from './pages/Invoices';
 import Customers from './pages/Customers';
 import CustomerDetail from './pages/CustomerDetail';
+import ProjectDetail from './pages/ProjectDetail';
+import Projects from './pages/Projects';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Logs from './pages/Logs';
@@ -63,11 +65,13 @@ export default function App() {
           <Route path="/income" element={<Income />} />
           <Route path="/expense" element={<Expense />} />
           <Route path="/invoices" element={<Invoices />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/projects/:name" element={<ProjectDetail />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/customers/:name" element={<CustomerDetail />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings isAdmin={user.role === 'admin'} />} />
-          <Route path="/logs" element={<Logs />} />
+          <Route path="/logs" element={<Logs user={user} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

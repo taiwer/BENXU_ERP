@@ -30,6 +30,10 @@ export default function Settings({ isAdmin }: { isAdmin: boolean }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accountName, setAccountName] = useState('');
+  const [initialBalance, setInitialBalance] = useState('');
+  const [isEditingAccount, setIsEditingAccount] = useState(false);
+  const [showReasonModal, setShowReasonModal] = useState(false);
+  const [opReason, setOpReason] = useState('');
 
   const fetchData = async () => {
     try {
@@ -44,7 +48,10 @@ export default function Settings({ isAdmin }: { isAdmin: boolean }) {
         setUsers(uData);
         const mainAcc = aData.find((a: Account) => a.id === 'main') || null;
         setAccount(mainAcc);
-        if (mainAcc) setAccountName(mainAcc.name);
+        if (mainAcc && !isEditingAccount) {
+          setAccountName(mainAcc.name);
+          setInitialBalance(mainAcc.initial_balance.toString());
+        }
       }
     } catch (err) {
       console.error('Fetch settings failed');
@@ -58,19 +65,38 @@ export default function Settings({ isAdmin }: { isAdmin: boolean }) {
   }, []);
 
   const handleUpdateAccount = async () => {
+    if (!opReason.trim()) {
+      setShowReasonModal(true);
+      return;
+    }
+
     setActionLoading(true);
     try {
       const res = await fetch('/api/accounts/main', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: accountName })
+        body: JSON.stringify({ 
+          name: accountName,
+          initial_balance: parseFloat(initialBalance) || 0,
+          operation_reason: opReason.trim()
+        })
       });
+
+      const data = await res.json();
+
       if (res.ok) {
-        fetchData();
-        alert('修改成功');
+        setIsEditingAccount(false);
+        setShowReasonModal(false);
+        setOpReason('');
+        await fetchData();
+        // Use a slight delay before alert to ensure UI updates
+        setTimeout(() => alert('账户信息已更新'), 100);
+      } else {
+        alert(data.error || '更新失败');
       }
     } catch (err) {
       console.error(err);
+      alert('操作失败，请检查网络');
     } finally {
       setActionLoading(false);
     }
@@ -163,36 +189,78 @@ export default function Settings({ isAdmin }: { isAdmin: boolean }) {
                 <Database className="h-5 w-5 text-gray-400" />
                 账户设置
               </h3>
-              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600 uppercase">
-                运行中
-              </span>
+              <div className="flex items-center gap-2">
+                {!isEditingAccount ? (
+                  <button 
+                    onClick={() => setIsEditingAccount(true)}
+                    className="text-xs font-bold text-blue-600 hover:underline"
+                  >
+                    编辑
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        setIsEditingAccount(false);
+                        setAccountName(account?.name || '');
+                        setInitialBalance(account?.initial_balance.toString() || '0');
+                      }}
+                      className="text-xs font-bold text-gray-400 hover:underline"
+                    >
+                      取消
+                    </button>
+                    <button 
+                      onClick={handleUpdateAccount}
+                      disabled={actionLoading}
+                      className="text-xs font-bold text-emerald-600 hover:underline"
+                    >
+                      {actionLoading ? '保存中...' : '保存'}
+                    </button>
+                  </div>
+                )}
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600 uppercase">
+                  运行中
+                </span>
+              </div>
             </div>
             
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">账套名称</label>
-                <div className="flex gap-2">
-                   <input 
+                {!isEditingAccount ? (
+                  <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700 border border-transparent">
+                    {account?.name}
+                  </div>
+                ) : (
+                  <input 
                     type="text" 
                     value={accountName}
                     onChange={(e) => setAccountName(e.target.value)}
-                    className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+                    placeholder="请输入账套名称"
                   />
-                  <button 
-                    onClick={handleUpdateAccount}
-                    disabled={actionLoading}
-                    className="rounded-lg bg-gray-900 px-4 py-2 text-xs font-bold text-white hover:bg-gray-800 transition-all disabled:opacity-50"
-                  >
-                    更新
-                  </button>
-                </div>
+                )}
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">期初余额 (元)</label>
-                <div className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3">
-                  <span className="font-mono font-bold text-gray-700">{formatCurrency(account?.initial_balance || 0)}</span>
-                  <button className="text-xs font-semibold text-blue-600 hover:underline">申请调整</button>
-                </div>
+                {!isEditingAccount ? (
+                  <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm font-mono border border-transparent">
+                    <span className="font-bold text-gray-700">{formatCurrency(account?.initial_balance || 0)}</span>
+                    <span className="text-[10px] text-gray-400 uppercase font-sans">当前余额: {formatCurrency(account?.current_balance || 0)}</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      value={initialBalance}
+                      onChange={(e) => setInitialBalance(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+                      placeholder="0.00"
+                    />
+                    <p className="px-1 text-[10px] text-rose-500 leading-tight">注意：修改期初金额将导致当前可用余额重新按差额自动重算。</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -200,25 +268,25 @@ export default function Settings({ isAdmin }: { isAdmin: boolean }) {
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <h3 className="mb-6 flex items-center gap-2 text-lg font-bold">
               <ShieldCheck className="h-5 w-5 text-gray-400" />
-              权限配置
+              审计与安全
             </h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-bold text-gray-900">软删除模式</p>
-                  <p className="text-xs text-gray-500">记录删除后仅标记，保留审计链</p>
+                  <p className="text-sm font-bold text-gray-900">审计追溯模式</p>
+                  <p className="text-xs text-gray-500">所有修改和删除均需强制填写原因</p>
                 </div>
-                <div className="h-6 w-10 rounded-full bg-emerald-500 relative cursor-not-allowed">
+                <div className="h-6 w-10 rounded-full bg-emerald-500 relative">
                   <div className="absolute right-1 top-1 h-4 w-4 rounded-full bg-white shadow-sm" />
                 </div>
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-bold text-gray-900">重复发票预警</p>
-                  <p className="text-xs text-gray-500">录入相同发票号时自动提醒</p>
+                  <p className="text-sm font-bold text-gray-900">多级管理员审批</p>
+                  <p className="text-xs text-gray-500">大额支出需要二级确认（开发中）</p>
                 </div>
-                <div className="h-6 w-10 rounded-full bg-emerald-500 relative cursor-not-allowed">
-                  <div className="absolute right-1 top-1 h-4 w-4 rounded-full bg-white shadow-sm" />
+                <div className="h-6 w-10 rounded-full bg-gray-200 relative">
+                  <div className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow-sm" />
                 </div>
               </div>
             </div>
@@ -254,30 +322,10 @@ export default function Settings({ isAdmin }: { isAdmin: boolean }) {
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
-                    <button className="text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors">编辑</button>
+                    <button className="text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors">权限</button>
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-6 flex items-center gap-2 text-lg font-bold">
-              <History className="h-5 w-5 text-gray-400" />
-              今日操作日志
-            </h3>
-            <div className="space-y-4">
-              <div className="flex gap-3 text-xs">
-                <span className="text-gray-400 tabular-nums">09:12:45</span>
-                <span className="font-bold text-gray-700">Admin</span>
-                <span className="text-gray-500">修改了收入类型 "其他"</span>
-              </div>
-              <div className="flex gap-3 text-xs">
-                <span className="text-gray-400 tabular-nums">10:05:22</span>
-                <span className="font-bold text-gray-700">MemberA</span>
-                <span className="text-gray-500">提交了一笔支出 (¥1,234.00)</span>
-              </div>
-              <p className="text-center text-[10px] text-blue-600 font-bold uppercase cursor-pointer hover:underline">查看完整审计流水</p>
             </div>
           </div>
         </div>
@@ -377,6 +425,63 @@ export default function Settings({ isAdmin }: { isAdmin: boolean }) {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      
+      {/* Account Reason Modal */}
+      <AnimatePresence>
+        {showReasonModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setShowReasonModal(false); setOpReason(''); }}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl"
+            >
+              <h3 className="mb-2 text-lg font-bold text-gray-900">确认修改账户</h3>
+              <p className="mb-6 text-sm text-gray-500 leading-relaxed">
+                修改账户基础信息（如账套名称、期初余额）属于高风险操作，请填写修改原因。
+              </p>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">
+                    操作原因 <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea 
+                    required
+                    autoFocus
+                    rows={3}
+                    placeholder="例如：更正期初录入错误、重命名实验室账套等..."
+                    value={opReason}
+                    onChange={(e) => setOpReason(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => { setShowReasonModal(false); setOpReason(''); }}
+                    className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    取消
+                  </button>
+                  <button 
+                    disabled={!opReason.trim() || actionLoading}
+                    onClick={handleUpdateAccount}
+                    className="flex-1 rounded-xl bg-slate-900 py-3 text-sm font-semibold text-white transition-all hover:bg-slate-800 disabled:opacity-30 active:scale-95"
+                  >
+                    {actionLoading ? '保存中...' : '确认修改'}
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

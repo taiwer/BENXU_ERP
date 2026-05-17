@@ -12,7 +12,8 @@ import {
   LogOut,
   Menu,
   X,
-  User as UserIcon
+  User as UserIcon,
+  FolderKanban
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { User } from '../types';
@@ -36,15 +37,18 @@ export default function Layout({ children, user }: LayoutProps) {
   };
 
   const menuItems = [
-    { name: '仪表盘', icon: LayoutDashboard, path: '/' },
-    { name: '入账记录', icon: ArrowDownCircle, path: '/income' },
-    { name: '出账记录', icon: ArrowUpCircle, path: '/expense' },
-    { name: '发票台账', icon: Receipt, path: '/invoices' },
-    { name: '客户管理', icon: Users, path: '/customers' },
-    { name: '报表导出', icon: BarChart3, path: '/reports' },
-    { name: '操作日志', icon: History, path: '/logs' },
-    { name: '系统设置', icon: Settings, path: '/settings' },
+    { name: '仪表盘', icon: LayoutDashboard, path: '/', roles: ['admin', 'member'] },
+    { name: '入账记录', icon: ArrowDownCircle, path: '/income', roles: ['admin', 'member'] },
+    { name: '出账记录', icon: ArrowUpCircle, path: '/expense', roles: ['admin', 'member'] },
+    { name: '发票台账', icon: Receipt, path: '/invoices', roles: ['admin', 'member'] },
+    { name: '项目管理', icon: FolderKanban, path: '/projects', roles: ['admin', 'member'] },
+    { name: '客户管理', icon: Users, path: '/customers', roles: ['admin', 'member'] },
+    { name: '报表导出', icon: BarChart3, path: '/reports', roles: ['admin', 'member'] },
+    { name: '操作日志', icon: History, path: '/logs', roles: ['admin'] },
+    { name: '系统设置', icon: Settings, path: '/settings', roles: ['admin'] },
   ];
+
+  const filteredMenuItems = menuItems.filter(item => item.roles.includes(user.role));
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -54,7 +58,7 @@ export default function Layout({ children, user }: LayoutProps) {
           <h1 className="text-xl font-bold tracking-tight text-white">BENXU_ERP</h1>
         </div>
         <nav className="flex-1 space-y-1 p-4">
-          {menuItems.map((item) => (
+          {filteredMenuItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
@@ -119,7 +123,7 @@ export default function Layout({ children, user }: LayoutProps) {
               </button>
             </div>
             <nav className="flex-1 space-y-1 p-4">
-              {menuItems.map((item) => (
+              {filteredMenuItems.map((item) => (
                 <NavLink
                   key={item.path}
                   to={item.path}

@@ -16,6 +16,7 @@ export interface Transaction {
   description: string;
   source?: string;
   payment_mode?: '对公' | '对私';
+  project_name?: string;
   attachment_url?: string;
   operator_id: number;
   operator_name: string;
@@ -32,6 +33,7 @@ export interface OperationLog {
   module: string;
   target_id: number;
   details: string;
+  reason?: string;
   created_at: string;
 }
 
