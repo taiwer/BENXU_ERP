@@ -1,0 +1,10 @@
+{
+  "name": "BENXU_ERP",
+  "description": "轻量级团体内部记账工具，支持收支追踪、余额实时计算、附件上传及月度报表导出。",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

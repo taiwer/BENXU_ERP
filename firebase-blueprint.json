@@ -1,0 +1,150 @@
+{
+  "entities": {
+    "Account": {
+      "title": "Account",
+      "description": "Financial account representing a pool of funds.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Account name" },
+        "initial_balance": { "type": "number", "description": "Starting balance" },
+        "current_balance": { "type": "number", "description": "Real-time balance" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "initial_balance", "current_balance"]
+    },
+    "Income": {
+      "title": "Income Record",
+      "description": "A record of money coming into the account.",
+      "type": "object",
+      "properties": {
+        "account_id": { "type": "string" },
+        "type": { "type": "string", "description": "Income type (e.g., Exam, Bioinfo)" },
+        "amount": { "type": "number" },
+        "invoice_no": { "type": "string" },
+        "invoice_type": { "type": "string", "enum": ["专票", "普票", "无"] },
+        "invoice_amount": { "type": "number" },
+        "delivery_note": { "type": "string" },
+        "customer": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "operator": { "type": "string" },
+        "remark": { "type": "string" },
+        "attachments": { "type": "array", "items": { "type": "string" } },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "is_deleted": { "type": "boolean" }
+      },
+      "required": ["account_id", "type", "amount", "customer", "date", "operator"]
+    },
+    "Expense": {
+      "title": "Expense Record",
+      "description": "A record of money going out of the account.",
+      "type": "object",
+      "properties": {
+        "account_id": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "reason": { "type": "string" },
+        "invoice_no": { "type": "string" },
+        "invoice_type": { "type": "string", "enum": ["专票", "普票", "无"] },
+        "date": { "type": "string", "format": "date" },
+        "operator": { "type": "string" },
+        "remark": { "type": "string" },
+        "attachments": { "type": "array", "items": { "type": "string" } },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "is_deleted": { "type": "boolean" }
+      },
+      "required": ["account_id", "category", "amount", "reason", "date", "operator"]
+    },
+    "IncomeType": {
+      "title": "Income Type",
+      "description": "Configurable income categories.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "ExpenseCategory": {
+      "title": "Expense Category",
+      "description": "Configurable expense categories.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer registry.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "contact": { "type": "string" },
+        "phone": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "Records of system actions.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "operator": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "operator", "action", "timestamp"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User roles and preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "member"] },
+        "name": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/accounts/{accountId}": {
+      "schema": "Account",
+      "description": "Main accounts collection."
+    },
+    "/accounts/{accountId}/incomes/{incomeId}": {
+      "schema": "Income",
+      "description": "Income records for an account."
+    },
+    "/accounts/{accountId}/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Expense records for an account."
+    },
+    "/income_types/{typeId}": {
+      "schema": "IncomeType",
+      "description": "Global income types."
+    },
+    "/expense_categories/{categoryId}": {
+      "schema": "ExpenseCategory",
+      "description": "Global expense categories."
+    },
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Global customer list."
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "System-wide audit logs."
+    },
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profiles."
+    }
+  }
+}

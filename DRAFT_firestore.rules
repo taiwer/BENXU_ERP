@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isAdmin() { return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // --- User Profile ---
+    match /users/{uid} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isOwner(uid) && incoming().role in ['admin', 'member'];
+      allow update: if isSignedIn() && (isOwner(uid) || isAdmin()) && (
+        // Action: Update Name (All)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt'])) ||
+        // Action: Update Role (Admin only)
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'updatedAt']))
+      );
+    }
+
+    // --- Accounts ---
+    match /accounts/{accountId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update: if isAdmin(); // Transactions for balance need access
+      allow update: if isSignedIn(); // Allow transactions where balance is updated by anyone
+    }
+
+    // --- Incomes ---
+    match /accounts/{accountId}/incomes/{incomeId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().is_deleted == false;
+      allow update: if (isAdmin() || isOwner(existing().created_by));
+    }
+
+    // --- Expenses ---
+    match /accounts/{accountId}/expenses/{expenseId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().is_deleted == false;
+      allow update: if (isAdmin() || isOwner(existing().created_by));
+    }
+  }
+}
