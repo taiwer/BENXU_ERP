@@ -68,12 +68,26 @@ db.exec(`
     category TEXT,
     description TEXT,
     source TEXT,
+    payment_mode TEXT, -- '对公', '对私'
     attachment_url TEXT, -- Store as JSON array string
     operator_id INTEGER,
     operator_name TEXT,
     is_deleted INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(operator_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS operation_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    user_name TEXT,
+    action TEXT, -- 'CREATE', 'UPDATE', 'DELETE'
+    module TEXT, -- 'INCOME', 'EXPENSE', 'TRANSACTION'
+    target_id INTEGER,
+    details TEXT, -- JSON string of changes
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
   );
 
   -- Insert default main account if not exists
@@ -81,10 +95,21 @@ db.exec(`
   VALUES ('main', '实验室公用资金', 0, 0);
 `);
 
-// Safe migration for source column
-try {
-  db.prepare("ALTER TABLE transactions ADD COLUMN source TEXT").run();
-} catch (e) {}
+// Safe migrations
+try { db.prepare("ALTER TABLE transactions ADD COLUMN source TEXT").run(); } catch (e) {}
+try { db.prepare("ALTER TABLE transactions ADD COLUMN payment_mode TEXT").run(); } catch (e) {}
+try { db.prepare("ALTER TABLE transactions ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP").run(); } catch (e) {}
+
+const recordLog = (userId: number, userName: string, action: string, module: string, targetId: number | null, details: any) => {
+  try {
+    db.prepare(`
+      INSERT INTO operation_logs (user_id, user_name, action, module, target_id, details)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(userId, userName, action, module, targetId, JSON.stringify(details));
+  } catch (err) {
+    console.error('Failed to record log:', err);
+  }
+};
 
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
@@ -212,11 +237,11 @@ app.get("/api/transactions/customers", authenticateToken, (req, res) => {
 });
 
 app.post("/api/transactions", authenticateToken, (req: any, res) => {
-  const { type, amount, date, customer, invoice_no, category, description, source, attachment_url } = req.body;
+  const { type, amount, date, customer, invoice_no, category, description, source, payment_mode, attachment_url } = req.body;
   
   const result = db.prepare(`
-    INSERT INTO transactions (type, amount, date, customer, invoice_no, category, description, source, attachment_url, operator_id, operator_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO transactions (type, amount, date, customer, invoice_no, category, description, source, payment_mode, attachment_url, operator_id, operator_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     type, 
     amount, 
@@ -226,34 +251,52 @@ app.post("/api/transactions", authenticateToken, (req: any, res) => {
     category, 
     description, 
     source || null, 
+    payment_mode || '对私',
     attachment_url, 
     req.user.id, 
     req.user.name
   );
 
+  const transactionId = result.lastInsertRowid as number;
+
+  // Record Log
+  recordLog(req.user.id, req.user.name, 'CREATE', type === 'income' ? 'INCOME' : 'EXPENSE', transactionId, req.body);
+
   // Update account balance
   const balanceChange = type === 'income' ? amount : -amount;
   db.prepare("UPDATE accounts SET current_balance = current_balance + ? WHERE id = 'main'").run(balanceChange);
 
-  res.json({ id: result.lastInsertRowid });
+  res.json({ id: transactionId });
 });
 
 app.put("/api/transactions/:id", authenticateToken, (req: any, res) => {
   const { id } = req.params;
-  const { amount, date, customer, invoice_no, category, description, source, attachment_url } = req.body;
+  const { amount, date, customer, invoice_no, category, description, source, payment_mode, attachment_url } = req.body;
 
   const oldRecord = db.prepare("SELECT * FROM transactions WHERE id = ? AND is_deleted = 0").get(id) as any;
   if (!oldRecord) return res.status(404).json({ error: "Record not found" });
 
   db.prepare(`
     UPDATE transactions 
-    SET amount = ?, date = ?, customer = ?, invoice_no = ?, category = ?, description = ?, source = ?, attachment_url = ?
+    SET amount = ?, date = ?, customer = ?, invoice_no = ?, category = ?, description = ?, source = ?, payment_mode = ?, attachment_url = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(amount, date, customer, invoice_no, category, description, source || null, attachment_url, id);
+  `).run(
+    amount, 
+    date, 
+    customer, 
+    invoice_no, 
+    category, 
+    description, 
+    source || null, 
+    payment_mode || '对私',
+    attachment_url, 
+    id
+  );
 
-  // Adjust account balance: Subtract old amount, add new amount
-  // Income: New - Old
-  // Expense: Old - New (since they are both positive numbers in DB)
+  // Record Log
+  recordLog(req.user.id, req.user.name, 'UPDATE', oldRecord.type === 'income' ? 'INCOME' : 'EXPENSE', parseInt(id), { old: oldRecord, new: req.body });
+
+  // Adjust account balance
   let diff = 0;
   if (oldRecord.type === 'income') {
     diff = amount - oldRecord.amount;
@@ -265,7 +308,7 @@ app.put("/api/transactions/:id", authenticateToken, (req: any, res) => {
   res.json({ success: true });
 });
 
-app.patch("/api/transactions/:id", authenticateToken, (req, res) => {
+app.patch("/api/transactions/:id", authenticateToken, (req: any, res) => {
   const { id } = req.params;
   const { is_deleted } = req.body;
 
@@ -274,10 +317,19 @@ app.patch("/api/transactions/:id", authenticateToken, (req, res) => {
     if (transaction && transaction.is_deleted === 0) {
       const balanceChange = transaction.type === 'income' ? -transaction.amount : transaction.amount;
       db.prepare("UPDATE accounts SET current_balance = current_balance + ? WHERE id = 'main'").run(balanceChange);
-      db.prepare("UPDATE transactions SET is_deleted = 1 WHERE id = ?").run(id);
+      db.prepare("UPDATE transactions SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+      
+      // Record Log
+      recordLog(req.user.id, req.user.name, 'DELETE', transaction.type === 'income' ? 'INCOME' : 'EXPENSE', parseInt(id), transaction);
     }
   }
   res.json({ success: true });
+});
+
+// Log Routes
+app.get("/api/logs", authenticateToken, (req, res) => {
+  const logs = db.prepare("SELECT * FROM operation_logs ORDER BY created_at DESC LIMIT 500").all();
+  res.json(logs);
 });
 
 // Account Routes

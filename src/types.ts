@@ -15,10 +15,23 @@ export interface Transaction {
   category: string;
   description: string;
   source?: string;
+  payment_mode?: '对公' | '对私';
   attachment_url?: string;
   operator_id: number;
   operator_name: string;
   is_deleted: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface OperationLog {
+  id: number;
+  user_id: number;
+  user_name: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  module: string;
+  target_id: number;
+  details: string;
   created_at: string;
 }
 

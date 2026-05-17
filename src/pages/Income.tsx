@@ -10,7 +10,11 @@ import {
   Image as ImageIcon,
   Trash2,
   Edit3,
-  ExternalLink
+  ExternalLink,
+  Download,
+  Calendar,
+  User as UserIcon,
+  CreditCard
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -29,13 +33,29 @@ export default function Income() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [allCustomers, setAllCustomers] = useState<string[]>([]);
   
-  const filteredRecords = records.filter(r => 
-    r.customer?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    r.invoice_no?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    r.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.source?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Advanced Filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [filterPaymentMode, setFilterPaymentMode] = useState<string>('all');
+  const [filterOperator, setFilterOperator] = useState<string>('');
+
+  const filteredRecords = records.filter(r => {
+    const matchesSearch = 
+      r.customer?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      r.invoice_no?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      r.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.source?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.operator_name?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStartDate = !filterStartDate || r.date >= filterStartDate;
+    const matchesEndDate = !filterEndDate || r.date <= filterEndDate;
+    const matchesPaymentMode = filterPaymentMode === 'all' || r.payment_mode === filterPaymentMode;
+    const matchesOperator = !filterOperator || r.operator_name?.toLowerCase().includes(filterOperator.toLowerCase());
+
+    return matchesSearch && matchesStartDate && matchesEndDate && matchesPaymentMode && matchesOperator;
+  });
   
   const [parsing, setParsing] = useState(false);
   const [attachmentUrls, setAttachmentUrls] = useState<string[]>([]);
@@ -49,6 +69,7 @@ export default function Income() {
   const [description, setDescription] = useState('');
   const [source, setSource] = useState(sourcesData.income[0]);
   const [customSource, setCustomSource] = useState('');
+  const [paymentMode, setPaymentMode] = useState<'对公' | '对私'>('对私');
 
   const fetchRecords = async () => {
     try {
@@ -106,6 +127,7 @@ export default function Income() {
           invoice_no: invoiceNo,
           category,
           source: finalSource,
+          payment_mode: paymentMode,
           description,
           attachment_url: JSON.stringify(attachmentUrls)
         })
@@ -137,6 +159,7 @@ export default function Income() {
     setDescription('');
     setSource(sourcesData.income[0]);
     setCustomSource('');
+    setPaymentMode('对私');
     setAttachmentUrls([]);
     setError(null);
     setEditingId(null);
@@ -150,6 +173,7 @@ export default function Income() {
     setDate(record.date);
     setInvoiceNo(record.invoice_no || '');
     setDescription(record.description || '');
+    setPaymentMode(record.payment_mode || '对私');
     
     const existingSource = record.source || '';
     if (sourcesData.income.includes(existingSource) && existingSource !== '其他') {
@@ -192,6 +216,35 @@ export default function Income() {
     reader.readAsDataURL(file);
   };
 
+  const handleExport = () => {
+    const headers = ['日期', '客户', '发票号', '类别', '渠道', '款项类型', '金额', '备注', '经办人'];
+    const rows = filteredRecords.map(r => [
+      r.date,
+      r.customer,
+      r.invoice_no,
+      r.category,
+      r.source,
+      r.payment_mode,
+      r.amount,
+      r.description,
+      r.operator_name
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `入账流水_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleDelete = async (id: number) => {
     if (!confirm('确定要删除这笔记录吗？')) return;
     
@@ -229,17 +282,98 @@ export default function Income() {
       </header>
 
       {/* Filter Bar */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input 
-            type="text" 
-            placeholder="搜索客户、发票号、备注、来源..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-          />
+      <div className="space-y-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="搜索客户、发票号、备注、来源、经办人..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium transition-all ${
+                showFilters ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Filter className="h-4 w-4" />
+              高级筛选
+            </button>
+            <button 
+              onClick={handleExport}
+              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <Download className="h-4 w-4" />
+              导出 CSV
+            </button>
+          </div>
         </div>
+
+        {showFilters && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            className="grid gap-4 rounded-2xl border border-gray-100 bg-gray-50/50 p-4 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                起始日期
+              </label>
+              <input 
+                type="date" 
+                value={filterStartDate}
+                onChange={e => setFilterStartDate(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                截止日期
+              </label>
+              <input 
+                type="date" 
+                value={filterEndDate}
+                onChange={e => setFilterEndDate(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-1">
+                <CreditCard className="h-3 w-3" />
+                款项类型
+              </label>
+              <select 
+                value={filterPaymentMode}
+                onChange={e => setFilterPaymentMode(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="all">全部类型</option>
+                <option value="对公">对公</option>
+                <option value="对私">对私</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-1">
+                <UserIcon className="h-3 w-3" />
+                经办人
+              </label>
+              <input 
+                type="text" 
+                placeholder="搜索经办人..."
+                value={filterOperator}
+                onChange={e => setFilterOperator(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* Records Table */}
@@ -282,6 +416,13 @@ export default function Income() {
                   </td>
                   <td className="px-6 py-4 mt-1">
                     <div className="flex flex-wrap gap-1">
+                      {record.payment_mode && (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                          record.payment_mode === '对公' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {record.payment_mode}
+                        </span>
+                      )}
                       {record.source && (
                         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 uppercase">
                           {record.source}
@@ -397,6 +538,29 @@ export default function Income() {
                       <option>生信收入</option>
                       <option>其他</option>
                     </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">款项性质 <span className="text-rose-500">*</span></label>
+                    <div className="flex gap-2">
+                      <button 
+                        type="button"
+                        onClick={() => setPaymentMode('对私')}
+                        className={`flex-1 rounded-xl border py-2.5 text-sm font-medium transition-all ${
+                          paymentMode === '对私' ? 'border-blue-600 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        对私 (私下付)
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setPaymentMode('对公')}
+                        className={`flex-1 rounded-xl border py-2.5 text-sm font-medium transition-all ${
+                          paymentMode === '对公' ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        对公 (走发票)
+                      </button>
+                    </div>
                   </div>
                 </div>
 

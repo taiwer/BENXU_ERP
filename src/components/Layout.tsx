@@ -7,6 +7,7 @@ import {
   Receipt, 
   Users, 
   BarChart3, 
+  History,
   Settings, 
   LogOut,
   Menu,
@@ -41,6 +42,7 @@ export default function Layout({ children, user }: LayoutProps) {
     { name: '发票台账', icon: Receipt, path: '/invoices' },
     { name: '客户管理', icon: Users, path: '/customers' },
     { name: '报表导出', icon: BarChart3, path: '/reports' },
+    { name: '操作日志', icon: History, path: '/logs' },
     { name: '系统设置', icon: Settings, path: '/settings' },
   ];
 

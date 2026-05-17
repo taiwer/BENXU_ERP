@@ -9,6 +9,7 @@ import Customers from './pages/Customers';
 import CustomerDetail from './pages/CustomerDetail';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import Logs from './pages/Logs';
 import Login from './pages/Login';
 import { User } from './types';
 
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="/customers/:name" element={<CustomerDetail />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings isAdmin={user.role === 'admin'} />} />
+          <Route path="/logs" element={<Logs />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
