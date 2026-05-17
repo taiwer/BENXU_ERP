@@ -118,7 +118,14 @@ app.post("/api/auth/login", (req, res) => {
   }
 
   const token = jwt.sign({ id: user.id, username: user.username, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: "7d" });
-  res.cookie("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" });
+  // If accessing via LAN (http), Secure: true will block the cookie. 
+  // We'll set it based on whether the request is actually secure.
+  res.cookie("token", token, { 
+    httpOnly: true, 
+    secure: req.secure || req.headers["x-forwarded-proto"] === "https", 
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  });
   res.json({ id: user.id, username: user.username, role: user.role, name: user.name });
 });
 
@@ -205,6 +212,33 @@ app.post("/api/transactions", authenticateToken, (req: any, res) => {
   db.prepare("UPDATE accounts SET current_balance = current_balance + ? WHERE id = 'main'").run(balanceChange);
 
   res.json({ id: result.lastInsertRowid });
+});
+
+app.put("/api/transactions/:id", authenticateToken, (req: any, res) => {
+  const { id } = req.params;
+  const { amount, date, customer, invoice_no, category, description, attachment_url } = req.body;
+
+  const oldRecord = db.prepare("SELECT * FROM transactions WHERE id = ? AND is_deleted = 0").get(id) as any;
+  if (!oldRecord) return res.status(404).json({ error: "Record not found" });
+
+  db.prepare(`
+    UPDATE transactions 
+    SET amount = ?, date = ?, customer = ?, invoice_no = ?, category = ?, description = ?, attachment_url = ?
+    WHERE id = ?
+  `).run(amount, date, customer, invoice_no, category, description, attachment_url, id);
+
+  // Adjust account balance: Subtract old amount, add new amount
+  // Income: New - Old
+  // Expense: Old - New (since they are both positive numbers in DB)
+  let diff = 0;
+  if (oldRecord.type === 'income') {
+    diff = amount - oldRecord.amount;
+  } else {
+    diff = oldRecord.amount - amount;
+  }
+  db.prepare("UPDATE accounts SET current_balance = current_balance + ? WHERE id = 'main'").run(diff);
+
+  res.json({ success: true });
 });
 
 app.patch("/api/transactions/:id", authenticateToken, (req, res) => {

@@ -286,19 +286,19 @@ export default function Settings({ isAdmin }: { isAdmin: boolean }) {
       {/* Add User Modal */}
       <AnimatePresence>
         {showAddUser && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex justify-center p-4 overflow-y-auto sm:items-center">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowAddUser(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+              className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl my-auto"
             >
               <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                 <h3 className="text-lg font-bold text-gray-900">添加新成员</h3>

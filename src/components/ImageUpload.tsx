@@ -4,12 +4,17 @@ import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 interface ImageUploadProps {
   onImagesChange: (urls: string[]) => void;
   maxImages?: number;
+  initialImages?: string[];
 }
 
-export default function ImageUpload({ onImagesChange, maxImages = 10 }: ImageUploadProps) {
-  const [images, setImages] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(false);
+export default function ImageUpload({ onImagesChange, maxImages = 10, initialImages = [] }: ImageUploadProps) {
+  const [images, setImages] = React.useState<string[]>(initialImages);
+  const [uploading, setUploading] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    setImages(initialImages);
+  }, [JSON.stringify(initialImages)]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);

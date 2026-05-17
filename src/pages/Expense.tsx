@@ -9,7 +9,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Image as ImageIcon,
-  Trash2
+  Trash2,
+  Edit3
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -22,6 +23,7 @@ export default function Expense() {
   const [error, setError] = useState<string | null>(null);
   const [records, setRecords] = useState<Transaction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const filteredRecords = records.filter(r => 
     r.description?.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -68,8 +70,11 @@ export default function Expense() {
     setError(null);
     
     try {
-      const res = await fetch('/api/transactions', {
-        method: 'POST',
+      const url = editingId ? `/api/transactions/${editingId}` : '/api/transactions';
+      const method = editingId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'expense',
@@ -101,11 +106,26 @@ export default function Expense() {
 
   const resetForm = () => {
     setAmount('');
+    setCategory('试剂耗材');
     setCustomer('');
-    setDescription('');
+    setDate(new Date().toISOString().split('T')[0]);
     setInvoiceNo('');
+    setDescription('');
     setAttachmentUrls([]);
     setError(null);
+    setEditingId(null);
+  };
+
+  const handleEdit = (record: Transaction) => {
+    setEditingId(record.id || null);
+    setAmount(record.amount.toString());
+    setCategory(record.category);
+    setCustomer(record.customer || '');
+    setDate(record.date);
+    setInvoiceNo(record.invoice_no || '');
+    setDescription(record.description || '');
+    setAttachmentUrls(record.attachment_url ? JSON.parse(record.attachment_url) : []);
+    setShowForm(true);
   };
 
   const handleAIParse = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -239,6 +259,13 @@ export default function Expense() {
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
+                        onClick={() => handleEdit(record)}
+                        className="rounded-lg p-2 text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-all"
+                        title="编辑"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </button>
+                      <button 
                         onClick={() => record.id && handleDelete(record.id)}
                         className="rounded-lg p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 transition-all"
                         title="删除"
@@ -278,22 +305,22 @@ export default function Expense() {
       {/* Entry Modal */}
       <AnimatePresence>
         {showForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex justify-center p-4 overflow-y-auto sm:items-center">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowForm(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-xl rounded-3xl bg-white p-8 shadow-2xl"
+              className="relative w-full max-w-xl rounded-3xl bg-white p-8 shadow-2xl my-auto"
             >
               <div className="mb-6 flex items-center justify-between">
-                <h3 className="text-xl font-bold">记一笔支出</h3>
+                <h3 className="text-xl font-bold">{editingId ? '编辑记录' : '记一笔支出'}</h3>
                 <div 
                   className="relative cursor-pointer overflow-hidden rounded-xl bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-600 transition-all hover:bg-orange-100"
                 >
@@ -320,7 +347,7 @@ export default function Expense() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">支出金额 (元)</label>
+                    <label className="text-sm font-medium text-gray-700">支出金额 (元) <span className="text-rose-500">*</span></label>
                     <input 
                       required
                       type="number" 
@@ -332,7 +359,7 @@ export default function Expense() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">支出类别</label>
+                    <label className="text-sm font-medium text-gray-700">支出类别 <span className="text-rose-500">*</span></label>
                     <select 
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
@@ -349,7 +376,7 @@ export default function Expense() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">支出原因/供应商</label>
+                  <label className="text-sm font-medium text-gray-700">支出原因/供应商 <span className="text-rose-500">*</span></label>
                   <input 
                     required
                     type="text" 
@@ -362,7 +389,7 @@ export default function Expense() {
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">业务日期</label>
+                    <label className="text-sm font-medium text-gray-700">业务日期 <span className="text-rose-500">*</span></label>
                     <input 
                       required
                       type="date" 
@@ -372,7 +399,7 @@ export default function Expense() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">发票号码 (可选)</label>
+                    <label className="text-sm font-medium text-gray-700 text-gray-400">发票号码 (可选)</label>
                     <input 
                       type="text" 
                       value={invoiceNo}
@@ -383,7 +410,7 @@ export default function Expense() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">备注</label>
+                  <label className="text-sm font-medium text-gray-700 text-gray-400">备注 (可选)</label>
                   <textarea 
                     rows={2}
                     placeholder="添加详细描述..."
@@ -394,8 +421,8 @@ export default function Expense() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">支出凭证 (最多10张)</label>
-                  <ImageUpload onImagesChange={setAttachmentUrls} />
+                  <label className="text-sm font-medium text-gray-700 text-gray-400">支出凭证 (选填，最多10张)</label>
+                  <ImageUpload onImagesChange={setAttachmentUrls} initialImages={attachmentUrls} />
                 </div>
 
                 {error && (
