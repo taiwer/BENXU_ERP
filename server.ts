@@ -132,9 +132,37 @@ app.get("/api/auth/me", authenticateToken, (req: any, res) => {
 });
 
 // User Routes
-app.get("/api/users", authenticateToken, (req, res) => {
+app.get("/api/users", authenticateToken, (req: any, res) => {
   const users = db.prepare("SELECT id, username, name, role, created_at FROM users").all();
   res.json(users);
+});
+
+app.post("/api/users", authenticateToken, (req: any, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: "Only admins can manage users" });
+  const { username, password, name, role } = req.body;
+  
+  try {
+    const hashedPassword = bcrypt.hashSync(password || "123456", 10);
+    db.prepare("INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)").run(username, hashedPassword, name, role || 'member');
+    res.json({ success: true });
+  } catch (err: any) {
+    if (err.message.includes('UNIQUE constraint failed')) {
+      return res.status(400).json({ error: "Username already exists" });
+    }
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.delete("/api/users/:id", authenticateToken, (req: any, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: "Only admins can manage users" });
+  const { id } = req.params;
+  
+  if (parseInt(id) === req.user.id) {
+    return res.status(400).json({ error: "Cannot delete yourself" });
+  }
+
+  db.prepare("DELETE FROM users WHERE id = ?").run(id);
+  res.json({ success: true });
 });
 
 // File Upload Route
@@ -198,6 +226,14 @@ app.patch("/api/transactions/:id", authenticateToken, (req, res) => {
 app.get("/api/accounts", authenticateToken, (req, res) => {
   const accounts = db.prepare("SELECT * FROM accounts").all();
   res.json(accounts);
+});
+
+app.patch("/api/accounts/:id", authenticateToken, (req: any, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: "Unauthorized" });
+  const { id } = req.params;
+  const { name } = req.body;
+  db.prepare("UPDATE accounts SET name = ? WHERE id = ?").run(name, id);
+  res.json({ success: true });
 });
 
 // AI Invoice Parsing (Mocked for now)

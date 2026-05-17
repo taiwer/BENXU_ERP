@@ -8,7 +8,8 @@ import {
   MoreHorizontal,
   ChevronLeft,
   ChevronRight,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Trash2
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,6 +21,15 @@ export default function Expense() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [records, setRecords] = useState<Transaction[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredRecords = records.filter(r => 
+    r.description?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    r.customer?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    r.invoice_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.category?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const [parsing, setParsing] = useState(false);
   const [attachmentUrls, setAttachmentUrls] = useState<string[]>([]);
   
@@ -127,6 +137,26 @@ export default function Expense() {
     reader.readAsDataURL(file);
   };
 
+  const handleDelete = async (id: number) => {
+    if (!confirm('确定要删除这笔记录吗？')) return;
+    
+    try {
+      const res = await fetch(`/api/transactions/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_deleted: 1 })
+      });
+      
+      if (res.ok) {
+        fetchRecords();
+      } else {
+        alert('删除失败');
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex items-center justify-between">
@@ -150,6 +180,8 @@ export default function Expense() {
           <input 
             type="text" 
             placeholder="搜索原因、类别、发票号..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
           />
         </div>
@@ -176,7 +208,7 @@ export default function Expense() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {records.map((record) => (
+              {filteredRecords.map((record) => (
                 <tr key={record.id} className="hover:bg-gray-50/50 transition-colors group">
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                     {formatDate(record.date)}
@@ -205,16 +237,25 @@ export default function Expense() {
                     {record.operator_name}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </button>
+                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => record.id && handleDelete(record.id)}
+                        className="rounded-lg p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 transition-all"
+                        title="删除"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                      <button className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
-              {records.length === 0 && (
+              {filteredRecords.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-20 text-center text-gray-400 italic text-sm">
-                    暂无支出记录
+                    没有找到相关记录
                   </td>
                 </tr>
               )}

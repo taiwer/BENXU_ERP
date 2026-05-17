@@ -47,6 +47,63 @@ export default function Reports() {
     }
   };
 
+  const exportCustomerReport = async () => {
+    setLoading('customer');
+    try {
+      const res = await fetch('/api/transactions');
+      if (res.ok) {
+        const transactions: Transaction[] = await res.json();
+        const incomes = transactions.filter(t => t.type === 'income');
+        const data = incomes.map(t => ({
+          日期: t.date,
+          客户名称: t.customer,
+          金额: t.amount,
+          发票号: t.invoice_no,
+          类别: t.category,
+          备注: t.description
+        }));
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "客户往来");
+        XLSX.writeFile(wb, `客户对账单_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const exportCategoryReport = async () => {
+    setLoading('category');
+    try {
+      const res = await fetch('/api/transactions');
+      if (res.ok) {
+        const transactions: Transaction[] = await res.json();
+        const expenses = transactions.filter(t => t.type === 'expense');
+        
+        const summary: any = {};
+        expenses.forEach(e => {
+          summary[e.category] = (summary[e.category] || 0) + e.amount;
+        });
+
+        const data = Object.keys(summary).map(cat => ({
+          费用类别: cat,
+          累计金额: summary[cat]
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "费用汇总");
+        XLSX.writeFile(wb, `费用类别统计_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header>
@@ -82,26 +139,36 @@ export default function Reports() {
         </div>
 
         {/* Customer Statement */}
-        <div className="flex flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm opacity-50 pointer-events-none">
+        <div className="flex flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
             <UsersIcon className="h-6 w-6" />
           </div>
           <h3 className="text-lg font-bold">客户对账单</h3>
-          <p className="mb-6 flex-1 text-sm text-gray-500">选择客户和日期范围，生成该客户往来明细。</p>
-          <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-100 py-2.5 text-sm font-semibold text-gray-400">
-            开发中
+          <p className="mb-6 flex-1 text-sm text-gray-500">导出所有客户的交易往来汇总及明细。</p>
+          <button 
+            onClick={() => exportCustomerReport()}
+            disabled={!!loading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white transition-all hover:bg-slate-800 active:scale-95 disabled:opacity-50"
+          >
+            {loading === 'customer' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            导出 Excel
           </button>
         </div>
 
         {/* Category Summary */}
-        <div className="flex flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm opacity-50 pointer-events-none">
+        <div className="flex flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
             <PieChart className="h-6 w-6" />
           </div>
           <h3 className="text-lg font-bold">费用类别统计</h3>
-          <p className="mb-6 flex-1 text-sm text-gray-500">按收入类型或支出类别汇总统计金额占比。</p>
-          <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-100 py-2.5 text-sm font-semibold text-gray-400">
-            开发中
+          <p className="mb-6 flex-1 text-sm text-gray-500">按支出类别统计金额占比，生成统计报表。</p>
+          <button 
+            onClick={() => exportCategoryReport()}
+            disabled={!!loading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white transition-all hover:bg-slate-800 active:scale-95 disabled:opacity-50"
+          >
+            {loading === 'category' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            导出 Excel
           </button>
         </div>
       </div>

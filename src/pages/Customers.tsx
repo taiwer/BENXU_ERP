@@ -10,6 +10,11 @@ import { Transaction } from '../types';
 export default function Customers() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredCustomers = customers.filter(c => 
+    c.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -53,12 +58,14 @@ export default function Customers() {
         <input 
           type="text" 
           placeholder="搜索客户..." 
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-500/20"
         />
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {customers.map((c) => (
+        {filteredCustomers.map((c) => (
           <div key={c.name} className="group overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
             <div className="mb-4 flex items-start justify-between">
               <div className="rounded-xl bg-blue-50 p-3 text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
@@ -81,7 +88,7 @@ export default function Customers() {
             </div>
           </div>
         ))}
-        {customers.length === 0 && !loading && (
+        {filteredCustomers.length === 0 && !loading && (
           <div className="col-span-full py-20 text-center text-gray-400 italic">暂无客户数据</div>
         )}
       </div>

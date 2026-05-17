@@ -12,8 +12,10 @@ import { cn, formatCurrency, formatDate } from '../lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { startOfMonth, subMonths, format } from 'date-fns';
 import { Transaction, Account } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [balance, setBalance] = useState(0);
   const [monthIncome, setMonthIncome] = useState(0);
   const [monthExpense, setMonthExpense] = useState(0);
@@ -178,7 +180,10 @@ export default function Dashboard() {
               ))
             )}
           </div>
-          <button className="mt-6 w-full rounded-xl bg-gray-50 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+          <button 
+            onClick={() => navigate('/income')}
+            className="mt-6 w-full rounded-xl bg-gray-50 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+          >
             查看更多
           </button>
         </div>
