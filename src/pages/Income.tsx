@@ -320,17 +320,27 @@ export default function Income() {
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900">入账记录</h2>
-          <p className="text-gray-500">管理所有的收入流水</p>
+          <h2 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900">入账记录</h2>
+          <p className="hidden sm:block text-sm text-gray-500">管理所有的收入流水</p>
         </div>
         <button 
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95"
+          className="hidden sm:flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95"
         >
           <Plus className="h-5 w-5" />
           记一笔收入
         </button>
       </header>
+
+      {/* Floating Action Button for Mobile */}
+      <div className="fixed bottom-6 right-6 z-40 sm:hidden">
+        <button 
+          onClick={() => setShowForm(true)}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-2xl shadow-blue-400 active:scale-90 transition-transform"
+        >
+          <Plus className="h-7 w-7" />
+        </button>
+      </div>
 
       {/* Filter Bar */}
       <div className="space-y-4">
@@ -440,108 +450,170 @@ export default function Income() {
         )}
       </div>
 
-      {/* Records Table */}
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-gray-50/50 text-xs font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100">
-                <th className="px-6 py-4">日期</th>
-                <th className="px-6 py-4">客户</th>
-                <th className="px-6 py-4">来源/类型</th>
-                <th className="px-6 py-4">金额</th>
-                <th className="px-6 py-4">经办人</th>
-                <th className="px-6 py-4 text-right">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filteredRecords.map((record) => (
-                <tr key={record.id} className="hover:bg-gray-50/50 transition-colors group">
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                    {formatDate(record.date)}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                       <button 
-                         onClick={() => navigate(`/customers/${encodeURIComponent(record.customer)}`)}
-                         className="text-sm font-semibold text-gray-900 flex items-center gap-1 hover:text-blue-600 transition-colors"
-                       >
-                         {record.customer}
-                         <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                       </button>
-                       {record.attachment_url && JSON.parse(record.attachment_url).length > 0 && (
-                         <div className="flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[8px] font-bold text-slate-500 uppercase">
-                           <ImageIcon className="h-2 w-2" />
-                           {JSON.parse(record.attachment_url).length}
-                         </div>
-                       )}
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      {record.project_name && (
+      {/* Records Section */}
+      <div className="space-y-4">
+        {/* Mobile Card View */}
+        <div className="grid gap-4 sm:hidden">
+          {filteredRecords.map((record) => (
+            <div key={record.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm active:bg-gray-50">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <div className="text-[10px] text-gray-400 font-medium">{formatDate(record.date)}</div>
+                  <button 
+                    onClick={() => navigate(`/customers/${encodeURIComponent(record.customer)}`)}
+                    className="mt-0.5 text-sm font-bold text-gray-900"
+                  >
+                    {record.customer}
+                  </button>
+                </div>
+                <div className="text-sm font-bold text-emerald-600">
+                  +{formatCurrency(record.amount)}
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {record.project_name && (
+                  <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">
+                    #{record.project_name}
+                  </span>
+                )}
+                <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+                  {record.category}
+                </span>
+                <span className="rounded bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                  {record.payment_mode}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                <div className="text-[10px] text-gray-500">经办人: {record.operator_name}</div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleEdit(record)}
+                    className="p-1.5 text-blue-600"
+                  >
+                    <Edit3 className="h-4 w-4" />
+                  </button>
+                  <button 
+                    onClick={() => record.id && handleDelete(record.id)}
+                    className="p-1.5 text-rose-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+          {filteredRecords.length === 0 && (
+            <div className="py-10 text-center text-gray-400 text-sm italic bg-white rounded-2xl border border-gray-100">
+              暂无记录
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table */}
+        <div className="hidden sm:block overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-gray-50/50 text-xs font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100">
+                  <th className="px-6 py-4">日期</th>
+                  <th className="px-6 py-4">客户</th>
+                  <th className="px-6 py-4">来源/类型</th>
+                  <th className="px-6 py-4">金额</th>
+                  <th className="px-6 py-4">经办人</th>
+                  <th className="px-6 py-4 text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filteredRecords.map((record) => (
+                  <tr key={record.id} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+                      {formatDate(record.date)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                         <button 
+                           onClick={() => navigate(`/customers/${encodeURIComponent(record.customer)}`)}
+                           className="text-sm font-semibold text-gray-900 flex items-center gap-1 hover:text-blue-600 transition-colors"
+                         >
+                           {record.customer}
+                           <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                         </button>
+                         {record.attachment_url && JSON.parse(record.attachment_url).length > 0 && (
+                           <div className="flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[8px] font-bold text-slate-500 uppercase">
+                             <ImageIcon className="h-2 w-2" />
+                             {JSON.parse(record.attachment_url).length}
+                           </div>
+                         )}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {record.project_name && (
+                          <button 
+                            onClick={() => navigate(`/projects/${encodeURIComponent(record.project_name!)}`)}
+                            className="text-[10px] text-indigo-500 hover:underline font-medium"
+                          >
+                            #{record.project_name}
+                          </button>
+                        )}
+                        {record.invoice_no && <div className="text-[10px] text-gray-400">票号: {record.invoice_no}</div>}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {record.payment_mode && (
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                            record.payment_mode === '对公' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {record.payment_mode}
+                          </span>
+                        )}
+                        {record.source && (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 uppercase">
+                            {record.source}
+                          </span>
+                        )}
+                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-600 uppercase">
+                          {record.category}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold text-emerald-600">
+                      +{formatCurrency(record.amount)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {record.operator_name}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-1">
                         <button 
-                          onClick={() => navigate(`/projects/${encodeURIComponent(record.project_name!)}`)}
-                          className="text-[10px] text-indigo-500 hover:underline font-medium"
+                          onClick={() => handleEdit(record)}
+                          className="rounded-lg p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all"
+                          title="编辑"
                         >
-                          #{record.project_name}
+                          <Edit3 className="h-4 w-4" />
                         </button>
-                      )}
-                      {record.invoice_no && <div className="text-[10px] text-gray-400">票号: {record.invoice_no}</div>}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 mt-1">
-                    <div className="flex flex-wrap gap-1">
-                      {record.payment_mode && (
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                          record.payment_mode === '对公' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {record.payment_mode}
-                        </span>
-                      )}
-                      {record.source && (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 uppercase">
-                          {record.source}
-                        </span>
-                      )}
-                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-600 uppercase">
-                        {record.category}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-bold text-emerald-600">
-                    +{formatCurrency(record.amount)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {record.operator_name}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-1">
-                      <button 
-                        onClick={() => handleEdit(record)}
-                        className="rounded-lg p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all"
-                        title="编辑"
-                      >
-                        <Edit3 className="h-4 w-4" />
-                      </button>
-                      <button 
-                        onClick={() => record.id && handleDelete(record.id)}
-                        className="rounded-lg p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 transition-all"
-                        title="删除"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredRecords.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-20 text-center text-gray-400 italic text-sm">
-                    没有找到相关记录
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                        <button 
+                          onClick={() => record.id && handleDelete(record.id)}
+                          className="rounded-lg p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 transition-all"
+                          title="删除"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredRecords.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-20 text-center text-gray-400 italic text-sm">
+                      没有找到相关记录
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -560,7 +632,7 @@ export default function Income() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-xl rounded-3xl bg-white p-8 shadow-2xl my-auto"
+              className="relative w-full max-w-xl rounded-3xl bg-white p-6 md:p-8 shadow-2xl my-auto max-h-[90vh] overflow-y-auto"
             >
               <div className="mb-6 flex items-center justify-between">
                 <h3 className="text-xl font-bold">{editingId ? '编辑记录' : '记一笔收入'}</h3>

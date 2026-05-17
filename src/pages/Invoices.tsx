@@ -57,55 +57,96 @@ export default function Invoices() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left font-mono text-sm">
-            <thead>
-              <tr className="bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100 font-sans">
-                <th className="px-6 py-4">发票号码</th>
-                <th className="px-6 py-4">关联业务</th>
-                <th className="px-6 py-4">金额</th>
-                <th className="px-6 py-4">日期</th>
-                <th className="px-6 py-4 text-right">状态</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {invoices.map((inv) => (
-                <tr 
-                  key={inv.id} 
-                  onClick={() => setSelectedInv(inv)}
-                  className="hover:bg-gray-50/50 transition-colors cursor-pointer group"
-                >
-                  <td className="px-6 py-4 font-bold text-gray-900 group-hover:text-blue-600">{inv.invoice_no}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      {inv.type === 'income' ? <ArrowUpRight className="h-3 w-3 text-emerald-500" /> : <ArrowDownRight className="h-3 w-3 text-rose-500" />}
-                      <span className="font-sans font-medium text-gray-600 truncate max-w-[150px]">
-                        {inv.type === 'income' ? inv.customer : inv.description}
-                      </span>
-                    </div>
-                  </td>
-                  <td className={cn(
-                    "px-6 py-4 font-bold",
-                    inv.type === 'income' ? "text-emerald-600" : "text-rose-600"
-                  )}>
-                    {inv.type === 'income' ? '+' : '-'}{formatCurrency(inv.amount)}
-                  </td>
-                  <td className="px-6 py-4 text-gray-500 font-sans">{formatDate(inv.date)}</td>
-                  <td className="px-6 py-4 text-right font-sans">
-                      <span className="text-xs text-emerald-500 font-medium">已录入</span>
-                  </td>
+      <div className="space-y-4">
+        {/* Mobile Card View */}
+        <div className="grid gap-4 sm:hidden">
+          {invoices.map((inv) => (
+            <div 
+              key={inv.id} 
+              onClick={() => setSelectedInv(inv)}
+              className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm active:bg-gray-50"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <div className="text-[10px] text-gray-400 font-mono">{inv.invoice_no}</div>
+                  <div className="mt-0.5 flex items-center gap-2">
+                    {inv.type === 'income' ? <ArrowUpRight className="h-3 w-3 text-emerald-500" /> : <ArrowDownRight className="h-3 w-3 text-rose-500" />}
+                    <span className="text-sm font-bold text-gray-900 group-hover:text-blue-600 truncate max-w-[150px]">
+                      {inv.type === 'income' ? inv.customer : inv.description}
+                    </span>
+                  </div>
+                </div>
+                <div className={cn(
+                  "text-sm font-bold",
+                  inv.type === 'income' ? "text-emerald-600" : "text-rose-600"
+                )}>
+                  {inv.type === 'income' ? '+' : '-'}{formatCurrency(inv.amount)}
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+                <div className="text-[10px] text-gray-500">{formatDate(inv.date)}</div>
+                <span className="text-[10px] text-emerald-500 font-bold uppercase">已录入</span>
+              </div>
+            </div>
+          ))}
+          {invoices.length === 0 && (
+            <div className="py-10 text-center text-gray-400 text-sm italic bg-white rounded-2xl border border-gray-100">
+              暂无记录
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table */}
+        <div className="hidden sm:block overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left font-mono text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100 font-sans">
+                  <th className="px-6 py-4">发票号码</th>
+                  <th className="px-6 py-4">关联业务</th>
+                  <th className="px-6 py-4">金额</th>
+                  <th className="px-6 py-4">日期</th>
+                  <th className="px-6 py-4 text-right">状态</th>
                 </tr>
-              ))}
-              {invoices.length === 0 && !loading && (
-                <tr>
-                  <td colSpan={6} className="py-20 text-center text-gray-400 italic font-sans">
-                    暂无发票记录
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {invoices.map((inv) => (
+                  <tr 
+                    key={inv.id} 
+                    onClick={() => setSelectedInv(inv)}
+                    className="hover:bg-gray-50/50 transition-colors cursor-pointer group"
+                  >
+                    <td className="px-6 py-4 font-bold text-gray-900 group-hover:text-blue-600">{inv.invoice_no}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        {inv.type === 'income' ? <ArrowUpRight className="h-3 w-3 text-emerald-500" /> : <ArrowDownRight className="h-3 w-3 text-rose-500" />}
+                        <span className="font-sans font-medium text-gray-600 truncate max-w-[150px]">
+                          {inv.type === 'income' ? inv.customer : inv.description}
+                        </span>
+                      </div>
+                    </td>
+                    <td className={cn(
+                      "px-6 py-4 font-bold",
+                      inv.type === 'income' ? "text-emerald-600" : "text-rose-600"
+                    )}>
+                      {inv.type === 'income' ? '+' : '-'}{formatCurrency(inv.amount)}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500 font-sans">{formatDate(inv.date)}</td>
+                    <td className="px-6 py-4 text-right font-sans">
+                        <span className="text-xs text-emerald-500 font-medium">已录入</span>
+                    </td>
+                  </tr>
+                ))}
+                {invoices.length === 0 && !loading && (
+                  <tr>
+                    <td colSpan={6} className="py-20 text-center text-gray-400 italic font-sans">
+                      暂无发票记录
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

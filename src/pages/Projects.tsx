@@ -54,11 +54,11 @@ export default function Projects() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="text-2xl font-bold tracking-tight text-gray-900">项目管理</h2>
-        <p className="text-gray-500">多维度查看各项目的收支明细与资金流转</p>
+        <h2 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900">项目管理</h2>
+        <p className="text-xs md:text-sm text-gray-500">多维度查看各项目的收支明细与资金流转</p>
       </header>
 
-      <div className="relative max-w-md">
+      <div className="relative w-full md:max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input 
           type="text" 
@@ -69,7 +69,7 @@ export default function Projects() {
         />
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {filteredProjects.map((p) => (
           <div 
             key={p.name} 

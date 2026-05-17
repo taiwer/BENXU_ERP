@@ -165,22 +165,22 @@ export default function Settings({ isAdmin }: { isAdmin: boolean }) {
   }
 
   return (
-    <div className="space-y-8">
-      <header className="flex items-center justify-between">
+    <div className="space-y-6 md:space-y-8">
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900">系统设置</h2>
-          <p className="text-gray-500">配置账户基础信息、成员权限及操作日志</p>
+          <h2 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900">系统设置</h2>
+          <p className="text-xs md:text-sm text-gray-500">配置账户基础信息、成员权限及操作日志</p>
         </div>
         <button 
           onClick={() => setShowAddUser(true)}
-          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95"
+          className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95"
         >
           <UserPlus className="h-4 w-4" />
           添加成员
         </button>
       </header>
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="grid gap-6 md:gap-8 lg:grid-cols-2">
         {/* Account Settings */}
         <div className="space-y-6">
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">

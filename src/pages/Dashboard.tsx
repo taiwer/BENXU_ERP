@@ -71,52 +71,52 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <header className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900">欢迎回来</h2>
-          <p className="text-gray-500">这是您团体的财务概况</p>
+          <h2 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900">欢迎回来</h2>
+          <p className="text-xs md:text-sm text-gray-500">这是您团体的财务概况</p>
         </div>
       </header>
 
       {/* Stats Cards */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <motion.div 
           whileHover={{ y: -4 }}
-          className="rounded-2xl bg-slate-900 p-6 text-white shadow-xl shadow-slate-200"
+          className="rounded-2xl bg-slate-900 p-5 md:p-6 text-white shadow-xl shadow-slate-200"
         >
-          <div className="flex items-center gap-4 mb-4">
-            <div className="rounded-full bg-slate-800 p-3">
-              <Wallet className="h-6 w-6 text-blue-400" />
+          <div className="flex items-center gap-3 md:gap-4 mb-4">
+            <div className="rounded-full bg-slate-800 p-2.5 md:p-3">
+              <Wallet className="h-5 w-5 md:h-6 md:w-6 text-blue-400" />
             </div>
-            <span className="text-sm font-medium text-slate-400 uppercase tracking-wider">当前余额</span>
+            <span className="text-[10px] md:text-sm font-medium text-slate-400 uppercase tracking-wider">当前余额</span>
           </div>
-          <div className="text-3xl font-bold">{formatCurrency(balance)}</div>
+          <div className="text-2xl md:text-3xl font-bold">{formatCurrency(balance)}</div>
         </motion.div>
 
         <motion.div 
           whileHover={{ y: -4 }}
-          className="rounded-2xl bg-white p-6 border border-gray-100 shadow-sm"
+          className="rounded-2xl bg-white p-5 md:p-6 border border-gray-100 shadow-sm"
         >
-          <div className="flex items-center gap-4 mb-4">
-            <div className="rounded-full bg-emerald-50 p-3">
-              <TrendingUp className="h-6 w-6 text-emerald-600" />
+          <div className="flex items-center gap-3 md:gap-4 mb-4">
+            <div className="rounded-full bg-emerald-50 p-2.5 md:p-3">
+              <TrendingUp className="h-5 w-5 md:h-6 md:w-6 text-emerald-600" />
             </div>
-            <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">本月累计收入</span>
+            <span className="text-[10px] md:text-sm font-medium text-gray-500 uppercase tracking-wider">本月收入</span>
           </div>
-          <div className="text-3xl font-bold text-gray-900">{formatCurrency(monthIncome)}</div>
+          <div className="text-2xl md:text-3xl font-bold text-gray-900">{formatCurrency(monthIncome)}</div>
         </motion.div>
 
         <motion.div 
           whileHover={{ y: -4 }}
-          className="rounded-2xl bg-white p-6 border border-gray-100 shadow-sm"
+          className="rounded-2xl bg-white p-5 md:p-6 border border-gray-100 shadow-sm"
         >
-          <div className="flex items-center gap-4 mb-4">
-            <div className="rounded-full bg-rose-50 p-3">
-              <TrendingDown className="h-6 w-6 text-rose-600" />
+          <div className="flex items-center gap-3 md:gap-4 mb-4">
+            <div className="rounded-full bg-rose-50 p-2.5 md:p-3">
+              <TrendingDown className="h-5 w-5 md:h-6 md:w-6 text-rose-600" />
             </div>
-            <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">本月累计支出</span>
+            <span className="text-[10px] md:text-sm font-medium text-gray-500 uppercase tracking-wider">本月支出</span>
           </div>
-          <div className="text-3xl font-bold text-gray-900">{formatCurrency(monthExpense)}</div>
+          <div className="text-2xl md:text-3xl font-bold text-gray-900">{formatCurrency(monthExpense)}</div>
         </motion.div>
       </div>
 
