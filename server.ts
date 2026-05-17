@@ -67,6 +67,7 @@ db.exec(`
     invoice_no TEXT,
     category TEXT,
     description TEXT,
+    source TEXT,
     attachment_url TEXT, -- Store as JSON array string
     operator_id INTEGER,
     operator_name TEXT,
@@ -79,6 +80,11 @@ db.exec(`
   INSERT OR IGNORE INTO accounts (id, name, initial_balance, current_balance) 
   VALUES ('main', '实验室公用资金', 0, 0);
 `);
+
+// Safe migration for source column
+try {
+  db.prepare("ALTER TABLE transactions ADD COLUMN source TEXT").run();
+} catch (e) {}
 
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
@@ -118,12 +124,13 @@ app.post("/api/auth/login", (req, res) => {
   }
 
   const token = jwt.sign({ id: user.id, username: user.username, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: "7d" });
-  // If accessing via LAN (http), Secure: true will block the cookie. 
-  // We'll set it based on whether the request is actually secure.
+  
+  // Set cookie options for compatibility with iframes and local dev
+  const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https";
   res.cookie("token", token, { 
     httpOnly: true, 
-    secure: req.secure || req.headers["x-forwarded-proto"] === "https", 
-    sameSite: "lax",
+    secure: isHttps,
+    sameSite: isHttps ? "none" : "lax", // None required for cross-site iframes (AI Studio)
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   });
   res.json({ id: user.id, username: user.username, role: user.role, name: user.name });
@@ -199,13 +206,30 @@ app.get("/api/transactions", authenticateToken, (req, res) => {
   res.json(transactions);
 });
 
+app.get("/api/transactions/customers", authenticateToken, (req, res) => {
+  const customers = db.prepare("SELECT DISTINCT customer FROM transactions WHERE customer IS NOT NULL AND customer != '' AND is_deleted = 0").all();
+  res.json(customers.map((c: any) => c.customer));
+});
+
 app.post("/api/transactions", authenticateToken, (req: any, res) => {
-  const { type, amount, date, customer, invoice_no, category, description, attachment_url } = req.body;
+  const { type, amount, date, customer, invoice_no, category, description, source, attachment_url } = req.body;
   
   const result = db.prepare(`
-    INSERT INTO transactions (type, amount, date, customer, invoice_no, category, description, attachment_url, operator_id, operator_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(type, amount, date, customer, invoice_no, category, description, attachment_url, req.user.id, req.user.name);
+    INSERT INTO transactions (type, amount, date, customer, invoice_no, category, description, source, attachment_url, operator_id, operator_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    type, 
+    amount, 
+    date, 
+    customer, 
+    invoice_no, 
+    category, 
+    description, 
+    source || null, 
+    attachment_url, 
+    req.user.id, 
+    req.user.name
+  );
 
   // Update account balance
   const balanceChange = type === 'income' ? amount : -amount;
@@ -216,16 +240,16 @@ app.post("/api/transactions", authenticateToken, (req: any, res) => {
 
 app.put("/api/transactions/:id", authenticateToken, (req: any, res) => {
   const { id } = req.params;
-  const { amount, date, customer, invoice_no, category, description, attachment_url } = req.body;
+  const { amount, date, customer, invoice_no, category, description, source, attachment_url } = req.body;
 
   const oldRecord = db.prepare("SELECT * FROM transactions WHERE id = ? AND is_deleted = 0").get(id) as any;
   if (!oldRecord) return res.status(404).json({ error: "Record not found" });
 
   db.prepare(`
     UPDATE transactions 
-    SET amount = ?, date = ?, customer = ?, invoice_no = ?, category = ?, description = ?, attachment_url = ?
+    SET amount = ?, date = ?, customer = ?, invoice_no = ?, category = ?, description = ?, source = ?, attachment_url = ?
     WHERE id = ?
-  `).run(amount, date, customer, invoice_no, category, description, attachment_url, id);
+  `).run(amount, date, customer, invoice_no, category, description, source || null, attachment_url, id);
 
   // Adjust account balance: Subtract old amount, add new amount
   // Income: New - Old

@@ -5,25 +5,28 @@ import {
   Filter, 
   Camera, 
   Loader2, 
-  MoreHorizontal,
   ChevronLeft,
   ChevronRight,
   Image as ImageIcon,
   Trash2,
-  Edit3
+  Edit3,
+  ExternalLink
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Transaction } from '../types';
 import ImageUpload from '../components/ImageUpload';
+import { useNavigate } from 'react-router-dom';
 
 export default function Expense() {
+  const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [records, setRecords] = useState<Transaction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [allCustomers, setAllCustomers] = useState<string[]>([]);
 
   const filteredRecords = records.filter(r => 
     r.description?.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -55,8 +58,21 @@ export default function Expense() {
     }
   };
 
+  const fetchCustomers = async () => {
+    try {
+      const res = await fetch('/api/transactions/customers');
+      if (res.ok) {
+        const data = await res.json();
+        setAllCustomers(data);
+      }
+    } catch (err) {
+      console.error('Fetch customers failed');
+    }
+  };
+
   useEffect(() => {
     fetchRecords();
+    fetchCustomers();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,6 +108,7 @@ export default function Expense() {
         setShowForm(false);
         resetForm();
         fetchRecords();
+        fetchCustomers();
       } else {
         const data = await res.json();
         setError(data.error || '保存失败');
@@ -199,17 +216,11 @@ export default function Expense() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input 
             type="text" 
-            placeholder="搜索原因、类别、发票号..." 
+            placeholder="搜索原因、类别、发票号、商户..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
           />
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-            <Filter className="h-4 w-4" />
-            筛选
-          </button>
         </div>
       </div>
 
@@ -220,7 +231,7 @@ export default function Expense() {
             <thead>
               <tr className="bg-gray-50/50 text-xs font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100">
                 <th className="px-6 py-4">日期</th>
-                <th className="px-6 py-4">用途原因</th>
+                <th className="px-6 py-4">用途原因/商户</th>
                 <th className="px-6 py-4">类别</th>
                 <th className="px-6 py-4">金额</th>
                 <th className="px-6 py-4">经办人</th>
@@ -243,7 +254,15 @@ export default function Expense() {
                          </div>
                        )}
                     </div>
-                    {record.customer && <div className="text-[10px] text-gray-400 uppercase tracking-tight line-clamp-1">供应商: {record.customer}</div>}
+                    {record.customer && (
+                      <button 
+                         onClick={() => navigate(`/customers/${encodeURIComponent(record.customer)}`)}
+                         className="text-[10px] text-gray-400 uppercase tracking-tight line-clamp-1 hover:text-blue-600 flex items-center gap-1 transition-colors"
+                      >
+                        供应商: {record.customer}
+                        <ExternalLink className="h-2 w-2 opacity-0 group-hover:opacity-100" />
+                      </button>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600 uppercase">
@@ -257,23 +276,20 @@ export default function Expense() {
                     {record.operator_name}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex justify-end gap-1">
                       <button 
                         onClick={() => handleEdit(record)}
-                        className="rounded-lg p-2 text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-all"
+                        className="rounded-lg p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all"
                         title="编辑"
                       >
                         <Edit3 className="h-4 w-4" />
                       </button>
                       <button 
                         onClick={() => record.id && handleDelete(record.id)}
-                        className="rounded-lg p-2 text-gray-400 hover:bg-rose-50 hover:text-rose-600 transition-all"
+                        className="rounded-lg p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 transition-all"
                         title="删除"
                       >
                         <Trash2 className="h-4 w-4" />
-                      </button>
-                      <button className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-                        <MoreHorizontal className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
@@ -289,17 +305,6 @@ export default function Expense() {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between border-t border-gray-50 px-6 py-4">
-          <p className="text-sm text-gray-500">共 {records.length} 条记录</p>
-          <div className="flex gap-2">
-            <button className="rounded-lg border border-gray-200 p-1.5 hover:bg-gray-50 disabled:opacity-50" disabled>
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button className="rounded-lg border border-gray-200 p-1.5 hover:bg-gray-50 disabled:opacity-50" disabled>
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Entry Modal */}
@@ -310,7 +315,7 @@ export default function Expense() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowForm(false)}
+              onClick={() => { setShowForm(false); resetForm(); }}
               className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
             />
             <motion.div 
@@ -355,7 +360,7 @@ export default function Expense() {
                       placeholder="0.00"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-lg font-bold outline-none focus:ring-2 focus:ring-red-500/20"
+                      className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-lg font-bold outline-none focus:ring-2 focus:ring-slate-500/20"
                     />
                   </div>
                   <div className="space-y-2">
@@ -376,15 +381,30 @@ export default function Expense() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">支出原因/供应商 <span className="text-rose-500">*</span></label>
+                  <label className="text-sm font-medium text-gray-700">支出原因 <span className="text-rose-500">*</span></label>
                   <input 
                     required
                     type="text" 
                     placeholder="例如: Western 抗体采购"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 text-gray-400">供应商/商户 (可选)</label>
+                  <input 
+                    list="customer-suggestions"
+                    type="text" 
+                    placeholder="例如: 某某生信代理公司"
                     value={customer}
                     onChange={(e) => setCustomer(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
+                  <datalist id="customer-suggestions">
+                    {allCustomers.map(c => <option key={c} value={c} />)}
+                  </datalist>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
@@ -432,7 +452,7 @@ export default function Expense() {
                 <div className="flex gap-3 pt-4">
                   <button 
                     type="button" 
-                    onClick={() => setShowForm(false)}
+                    onClick={() => { setShowForm(false); resetForm(); }}
                     className="flex-1 rounded-xl border border-gray-200 py-3 font-semibold text-gray-600 hover:bg-gray-50"
                   >
                     取消

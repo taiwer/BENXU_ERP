@@ -6,6 +6,7 @@ import Income from './pages/Income';
 import Expense from './pages/Expense';
 import Invoices from './pages/Invoices';
 import Customers from './pages/Customers';
+import CustomerDetail from './pages/CustomerDetail';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/expense" element={<Expense />} />
           <Route path="/invoices" element={<Invoices />} />
           <Route path="/customers" element={<Customers />} />
+          <Route path="/customers/:name" element={<CustomerDetail />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings isAdmin={user.role === 'admin'} />} />
           <Route path="*" element={<Navigate to="/" replace />} />

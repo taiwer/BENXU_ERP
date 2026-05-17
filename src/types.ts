@@ -14,6 +14,7 @@ export interface Transaction {
   invoice_no: string;
   category: string;
   description: string;
+  source?: string;
   attachment_url?: string;
   operator_id: number;
   operator_name: string;
