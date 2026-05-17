@@ -107,8 +107,8 @@ export default function Reports() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="text-2xl font-bold tracking-tight text-gray-900">报表导出</h2>
-        <p className="text-gray-500">生成并导出各类财务数据统计表</p>
+        <h2 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900">报表导出</h2>
+        <p className="text-xs md:text-sm text-gray-500">生成并导出各类财务数据统计表</p>
       </header>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
