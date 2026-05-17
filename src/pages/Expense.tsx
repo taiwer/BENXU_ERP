@@ -7,7 +7,8 @@ import {
   Loader2, 
   MoreHorizontal,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Image as ImageIcon
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -181,7 +182,15 @@ export default function Expense() {
                     {formatDate(record.date)}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm font-semibold text-gray-900">{record.description}</div>
+                    <div className="flex items-center gap-2">
+                       <div className="text-sm font-semibold text-gray-900">{record.description}</div>
+                       {record.attachment_url && JSON.parse(record.attachment_url).length > 0 && (
+                         <div className="flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[8px] font-bold text-slate-500 uppercase">
+                           <ImageIcon className="h-2 w-2" />
+                           {JSON.parse(record.attachment_url).length}
+                         </div>
+                       )}
+                    </div>
                     {record.customer && <div className="text-[10px] text-gray-400 uppercase tracking-tight line-clamp-1">供应商: {record.customer}</div>}
                   </td>
                   <td className="px-6 py-4">

@@ -13,7 +13,7 @@ import fs from "fs";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "benxu-erp-secret-key-123";
 
 // Ensure uploads directory exists
