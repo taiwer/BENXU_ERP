@@ -11,7 +11,7 @@ import {
   ArrowDownRight,
   Briefcase
 } from 'lucide-react';
-import { formatCurrency, formatDate } from '../lib/utils';
+import { formatCurrency, formatDate, cn } from '../lib/utils';
 import { Transaction } from '../types';
 import { motion } from 'motion/react';
 
